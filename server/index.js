@@ -182,6 +182,19 @@ app.get('/api/users/search', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/users/list — list users from profiles
+app.get('/api/users/list', requireAuth, async (_req, res) => {
+  try {
+    const rows = await sbFetch('/rest/v1/profiles?select=id,email,full_name,plan_name,is_paid,subscription_expires_at&order=email.asc&limit=200', {
+      method: 'GET',
+      token: SUPABASE_ANON_KEY,
+    });
+    res.json({ rows: Array.isArray(rows) ? rows : [] });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // PUT /api/profiles/:userId — update subscription fields
 app.put('/api/profiles/:userId', requireAuth, async (req, res) => {
   try {

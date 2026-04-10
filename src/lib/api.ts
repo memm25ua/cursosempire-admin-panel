@@ -24,6 +24,9 @@ export const api = {
   searchUser: (email: string) =>
     apiFetch(`/api/users/search?email=${encodeURIComponent(email)}`),
 
+  listUsers: () =>
+    apiFetch('/api/users/list'),
+
   updateProfile: (userId: string, data: Record<string, unknown>) =>
     apiFetch(`/api/profiles/${userId}`, { method: 'PUT', body: JSON.stringify(data) }),
 };
