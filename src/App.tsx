@@ -1,34 +1,29 @@
 import { useState } from 'react';
 import CreateUser from './components/CreateUser';
 import UserSearch from './components/UserSearch';
-import UserList from './components/UserList';
 
-type Tab = 'create' | 'search' | 'list';
+type Tab = 'crear' | 'usuarios';
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('search');
+  const [tab, setTab] = useState<Tab>('usuarios');
 
   return (
     <div className="container">
       <header>
-        <h1>Admin Panel</h1>
+        <h1>Panel de admin</h1>
       </header>
 
       <nav>
-        <button className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>
-          Search / Edit User
+        <button className={tab === 'usuarios' ? 'active' : ''} onClick={() => setTab('usuarios')}>
+          Usuarios
         </button>
-        <button className={tab === 'create' ? 'active' : ''} onClick={() => setTab('create')}>
-          Create User
-        </button>
-        <button className={tab === 'list' ? 'active' : ''} onClick={() => setTab('list')}>
-          List Users
+        <button className={tab === 'crear' ? 'active' : ''} onClick={() => setTab('crear')}>
+          Crear usuario
         </button>
       </nav>
 
-      {tab === 'search' && <UserSearch />}
-      {tab === 'create' && <CreateUser />}
-      {tab === 'list' && <UserList />}
+      {tab === 'usuarios' && <UserSearch />}
+      {tab === 'crear' && <CreateUser />}
     </div>
   );
 }

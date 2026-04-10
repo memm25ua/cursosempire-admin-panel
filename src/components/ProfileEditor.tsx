@@ -71,9 +71,9 @@ export default function ProfileEditor({ userId, profile, onUpdated }: Props) {
       };
       const data = await api.updateProfile(userId, payload);
       onUpdated(data.profile);
-      setMsg({ type: 'success', text: 'Profile updated successfully.' });
+      setMsg({ type: 'success', text: 'Perfil actualizado.' });
     } catch (err) {
-      setMsg({ type: 'error', text: err instanceof Error ? err.message : 'Update failed' });
+      setMsg({ type: 'error', text: err instanceof Error ? err.message : 'Error al actualizar' });
     } finally {
       setLoading(false);
     }
@@ -82,39 +82,39 @@ export default function ProfileEditor({ userId, profile, onUpdated }: Props) {
   if (!profile) {
     return (
       <div className="card">
-        <h2>Profile</h2>
-        <p style={{ color: '#888', fontSize: '0.9rem' }}>No profile row found in the profiles table for this user.</p>
+        <h2>Perfil</h2>
+        <p style={{ color: '#888', fontSize: '0.9rem' }}>No existe fila en `profiles` para este usuario.</p>
       </div>
     );
   }
 
   return (
     <div className="card">
-      <h2>Edit Profile</h2>
+      <h2>Editar usuario</h2>
       <form onSubmit={handleSubmit}>
         <div className="row">
           <div>
-            <label>Full Name</label>
+            <label>Nombre completo</label>
             <input type="text" name="full_name" value={form.full_name} onChange={handleChange} />
           </div>
           <div>
-            <label>Plan Name</label>
-            <input type="text" name="plan_name" value={form.plan_name} onChange={handleChange} placeholder="e.g. pro, basic" />
+            <label>Plan</label>
+            <input type="text" name="plan_name" value={form.plan_name} onChange={handleChange} placeholder="Plan Mensual, Plan Anual..." />
           </div>
         </div>
 
         <div className="row">
           <div>
-            <label>Stripe Customer ID</label>
+            <label>Stripe customer ID</label>
             <input type="text" name="stripe_customer_id" value={form.stripe_customer_id} onChange={handleChange} placeholder="cus_..." />
           </div>
           <div>
-            <label>PayPal Payer ID</label>
+            <label>PayPal payer ID</label>
             <input type="text" name="paypal_payer_id" value={form.paypal_payer_id} onChange={handleChange} />
           </div>
         </div>
 
-        <label>Subscription Expires At</label>
+        <label>Fin de suscripción</label>
         <input
           type="datetime-local"
           name="subscription_expires_at"
@@ -131,11 +131,11 @@ export default function ProfileEditor({ userId, profile, onUpdated }: Props) {
             onChange={handleChange}
             style={{ width: 'auto', marginBottom: 0 }}
           />
-          <label htmlFor="is_paid">Is Paid</label>
+          <label htmlFor="is_paid">Pagado</label>
         </div>
 
         <button type="submit" className="primary" disabled={loading}>
-          {loading ? 'Saving…' : 'Save Changes'}
+          {loading ? 'Guardando…' : 'Guardar cambios'}
         </button>
       </form>
       {msg && <div className={`msg ${msg.type}`}>{msg.text}</div>}

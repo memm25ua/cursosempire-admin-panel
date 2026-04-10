@@ -76,5 +76,7 @@ nav button { background: #eee; color: #333; }
 nav button.active { background: #111; color: #fff; }
 
 .user-info { background: #f0f0f0; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; }
-.user-info span { display: inline-block; margin-right: 1.5rem; color: #555; }
+.user-info span { display: inline-block; margin-right: 1.5rem; color: #555; margin-top: 0.35rem; }
 .user-info strong { color: #111; }
+
+table button { padding: 0.4rem 0.8rem; }

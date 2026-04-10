@@ -14,12 +14,12 @@ export default function CreateUser() {
     setLoading(true);
     try {
       const data = await api.createUser(email, password, fullName);
-      setMsg({ type: 'success', text: `User created: ${data.user.email} (id: ${data.user.id})` });
+      setMsg({ type: 'success', text: `Usuario creado: ${data.user.email} (id: ${data.user.id})` });
       setEmail('');
       setPassword('');
       setFullName('');
     } catch (err) {
-      setMsg({ type: 'error', text: err instanceof Error ? err.message : 'Error creating user' });
+      setMsg({ type: 'error', text: err instanceof Error ? err.message : 'Error al crear el usuario' });
     } finally {
       setLoading(false);
     }
@@ -27,16 +27,16 @@ export default function CreateUser() {
 
   return (
     <div className="card">
-      <h2>Create User</h2>
+      <h2>Crear usuario</h2>
       <form onSubmit={handleSubmit}>
         <label>Email</label>
         <input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-        <label>Password</label>
+        <label>Contraseña</label>
         <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
-        <label>Full name</label>
+        <label>Nombre completo</label>
         <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} />
         <button type="submit" className="primary" disabled={loading}>
-          {loading ? 'Creating…' : 'Create User'}
+          {loading ? 'Creando…' : 'Crear usuario'}
         </button>
       </form>
       {msg && <div className={`msg ${msg.type}`}>{msg.text}</div>}
