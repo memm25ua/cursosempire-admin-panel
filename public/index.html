@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cursosempire Admin</title>
+  <style>
+    body{font-family:Inter,Arial,sans-serif;margin:0;background:#0b1020;color:#edf2f7}
+    .wrap{max-width:980px;margin:0 auto;padding:24px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .card{background:#121934;border:1px solid #263152;border-radius:14px;padding:16px}
+    label{display:block;font-size:12px;color:#a9b4d0;margin:10px 0 6px}
+    input,select,button{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #33415f;background:#0f1630;color:#fff}
+    button{background:#4f46e5;border:none;font-weight:600;cursor:pointer;margin-top:12px}
+    pre{white-space:pre-wrap;word-break:break-word;background:#0a0f22;padding:12px;border-radius:10px;min-height:120px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width: 760px){.grid,.row{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Cursosempire Admin</h1>
+    <div class="grid">
+      <section class="card">
+        <h2>Crear usuario</h2>
+        <div class="row">
+          <div><label>Email</label><input id="createEmail" type="email" /></div>
+          <div><label>Password</label><input id="createPassword" type="text" /></div>
+        </div>
+        <div class="row">
+          <div><label>Nombre</label><input id="createName" /></div>
+          <div><label>Username</label><input id="createUsername" /></div>
+        </div>
+        <button onclick="createUser()">Crear</button>
+      </section>
+
+      <section class="card">
+        <h2>Buscar profile</h2>
+        <div class="row">
+          <div><label>Email</label><input id="searchEmail" type="email" /></div>
+          <div><label>ID</label><input id="searchId" /></div>
+        </div>
+        <button onclick="searchProfiles()">Buscar</button>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top:16px">
+      <h2>Editar suscripción</h2>
+      <div class="row">
+        <div><label>Profile ID</label><input id="editId" /></div>
+        <div><label>Plan</label><input id="planName" placeholder="Plan Mensual / Plan Anual / Lifetime" /></div>
+      </div>
+      <div class="row">
+        <div><label>Está pagado</label><select id="isPaid"><option value="true">true</option><option value="false">false</option></select></div>
+        <div><label>Expira en</label><input id="expiresAt" type="datetime-local" /></div>
+      </div>
+      <div class="row">
+        <div><label>Stripe customer id</label><input id="stripeCustomerId" /></div>
+        <div><label>PayPal payer id</label><input id="paypalPayerId" /></div>
+      </div>
+      <div class="row">
+        <div><label>Nombre</label><input id="fullName" /></div>
+        <div><label>Username</label><input id="username" /></div>
+      </div>
+      <button onclick="updateProfile()">Guardar cambios</button>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <h2>Respuesta</h2>
+      <pre id="output"></pre>
+    </section>
+  </div>
+  <script>
+    const out = document.getElementById('output');
+    const show = (x) => out.textContent = typeof x === 'string' ? x : JSON.stringify(x, null, 2);
+
+    async function createUser() {
+      const body = {
+        email: document.getElementById('createEmail').value,
+        password: document.getElementById('createPassword').value,
+        full_name: document.getElementById('createName').value,
+        username: document.getElementById('createUsername').value,
+      };
+      const r = await fetch('/api/users', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+      show(await r.json());
+    }
+
+    async function searchProfiles() {
+      const email = document.getElementById('searchEmail').value;
+      const id = document.getElementById('searchId').value;
+      const qs = new URLSearchParams();
+      if (email) qs.set('email', email);
+      if (id) qs.set('id', id);
+      const r = await fetch('/api/profiles?' + qs.toString());
+      const data = await r.json();
+      show(data);
+      const row = data.rows?.[0];
+      if (row) {
+        document.getElementById('editId').value = row.id || '';
+        document.getElementById('planName').value = row.plan_name || '';
+        document.getElementById('isPaid').value = String(!!row.is_paid);
+        document.getElementById('expiresAt').value = row.subscription_expires_at ? new Date(row.subscription_expires_at).toISOString().slice(0,16) : '';
+        document.getElementById('stripeCustomerId').value = row.stripe_customer_id || '';
+        document.getElementById('paypalPayerId').value = row.paypal_payer_id || '';
+        document.getElementById('fullName').value = row.full_name || '';
+        document.getElementById('username').value = row.username || '';
+      }
+    }
+
+    async function updateProfile() {
+      const id = document.getElementById('editId').value;
+      const body = {
+        full_name: document.getElementById('fullName').value || null,
+        username: document.getElementById('username').value || null,
+        is_paid: document.getElementById('isPaid').value === 'true',
+        plan_name: document.getElementById('planName').value || null,
+        subscription_expires_at: document.getElementById('expiresAt').value ? new Date(document.getElementById('expiresAt').value).toISOString() : null,
+        stripe_customer_id: document.getElementById('stripeCustomerId').value || null,
+        paypal_payer_id: document.getElementById('paypalPayerId').value || null,
+      };
+      const r = await fetch('/api/profiles/' + encodeURIComponent(id), { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+      show(await r.json());
+    }
+  </script>
+</body>
+</html>
