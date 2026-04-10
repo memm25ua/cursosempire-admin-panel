@@ -10,7 +10,11 @@ const PLAN_OPTIONS = [
   'PAGO UNICO',
   'Pago Unico',
   'Pendiente a pago',
+  'Plan Anual',
   'Plan anual',
+  'Plan Mensual',
+  'Plan mensual',
+  'Prueba',
 ];
 
 interface Profile {
