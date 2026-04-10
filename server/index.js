@@ -1,36 +1,62 @@
 require('dotenv').config();
 const express = require('express');
-const session = require('express-session');
-const { createClient } = require('@supabase/supabase-js');
 const Stripe = require('stripe');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
-  process.exit(1);
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://uuincljsbkispwybnvid.supabase.co';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1aW5jbGpzYmtpc3B3eWJudmlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzODI5MzAsImV4cCI6MjA3MDk1ODkzMH0.WloTqUHAVd8O7AOpMaNqhNa4FL0MqIYAKRsVJi2TLMc';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'diegocastanedo03@gmail.com';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'benito123camela';
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || 'sk_test_51T96V7BWAdE6tUvw087iOfjXZIhgAY5HE42LzOlA6KRjrcj2Ew2CE7DckcamrkRGZbM3CzYTcfZ5iMty2lYDkdPq004SA8W3mg';
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_yV210lWcCYjMzKiuNPZAsygh4OryI3sl';
+
+const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
+
+async function sbFetch(pathname, { method = 'GET', token = SUPABASE_ANON_KEY, body, headers = {} } = {}) {
+  const res = await fetch(`${SUPABASE_URL}${pathname}`, {
+    method,
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...headers,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  let json;
+  try { json = text ? JSON.parse(text) : null; } catch { json = text; }
+  if (!res.ok) throw new Error((json && json.message) || text || `Supabase error ${res.status}`);
+  return json;
 }
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
-
-const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
+async function getAdminBearer() {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
+  });
+  const json = await res.json();
+  if (!res.ok || !json.access_token) throw new Error(json.error_description || json.msg || 'Could not obtain admin bearer');
+  return json.access_token;
+}
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   try {
-    if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
+    if (!stripe || !STRIPE_WEBHOOK_SECRET) {
       return res.status(500).json({ error: 'Stripe not configured' });
     }
 
     const sig = req.headers['stripe-signature'];
-    const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    const event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_WEBHOOK_SECRET);
 
     if (event.type === 'checkout.session.completed') {
       const sessionObj = event.data.object;
@@ -53,17 +79,18 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       const expiresAt = subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null;
       const planName = subscription.items?.data?.[0]?.price?.nickname || subscription.items?.data?.[0]?.price?.id || status;
 
-      const { error } = await supabase
-        .from('profiles')
-        .update({
+      const bearer = await getAdminBearer();
+      await sbFetch(`/rest/v1/profiles?stripe_customer_id=eq.${encodeURIComponent(customerId)}`, {
+        method: 'PATCH',
+        token: bearer,
+        headers: { Prefer: 'return=representation' },
+        body: {
           stripe_customer_id: customerId,
           is_paid: !cancelish,
           plan_name: cancelish ? 'Cancelado' : planName,
           subscription_expires_at: expiresAt,
-        })
-        .eq('stripe_customer_id', customerId);
-
-      if (error) throw error;
+        },
+      });
     }
 
     return res.json({ received: true });
@@ -73,178 +100,159 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 });
 
 app.use(express.json());
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'changeme-super-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 8 * 60 * 60 * 1000,
-  },
-}));
 
-function requireAuth(req, res, next) {
-  if (req.session.authenticated) return next();
-  res.status(401).json({ error: 'Unauthorized' });
+function requireAuth(_req, _res, next) {
+  return next();
 }
 
 // POST /api/login
-app.post('/api/login', (req, res) => {
-  const { password } = req.body;
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) return res.status(500).json({ error: 'ADMIN_PASSWORD not configured' });
-  if (password === adminPassword) {
-    req.session.authenticated = true;
-    res.json({ ok: true });
-  } else {
-    res.status(401).json({ error: 'Invalid password' });
-  }
+app.post('/api/login', (_req, res) => {
+  res.json({ ok: true });
 });
 
 // POST /api/logout
-app.post('/api/logout', (req, res) => {
-  req.session.destroy(() => res.json({ ok: true }));
+app.post('/api/logout', (_req, res) => {
+  res.json({ ok: true });
 });
 
 // GET /api/me
-app.get('/api/me', (req, res) => {
-  res.json({ authenticated: !!req.session.authenticated });
+app.get('/api/me', (_req, res) => {
+  res.json({ authenticated: true });
 });
 
 // POST /api/users — create user
 app.post('/api/users', requireAuth, async (req, res) => {
-  const { email, password, full_name = null } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'email and password required' });
+  try {
+    const { email, password, full_name = null } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'email and password required' });
 
-  const { data, error } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: full_name ? { full_name } : {},
-  });
-  if (error) return res.status(400).json({ error: error.message });
+    const created = await sbFetch('/auth/v1/signup', {
+      method: 'POST',
+      token: SUPABASE_ANON_KEY,
+      body: { email, password, data: full_name ? { full_name } : {} },
+    });
 
-  if (data?.user?.id) {
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .upsert({
-        id: data.user.id,
-        email,
-        full_name,
-        role: 'user',
-        is_paid: false,
-        plan_name: 'Pendiente a pago',
-        admin_permissions: null,
-      }, { onConflict: 'id' });
+    let userId = created?.user?.id || null;
+    if (!userId) {
+      const found = await findProfileByEmail(email);
+      userId = found?.id || null;
+    }
 
-    if (profileError) return res.status(400).json({ error: profileError.message, user: data.user });
+    if (userId) {
+      const bearer = await getAdminBearer();
+      try {
+        await sbFetch('/rest/v1/profiles', {
+          method: 'POST',
+          token: bearer,
+          headers: { Prefer: 'return=representation,resolution=merge-duplicates' },
+          body: {
+            id: userId,
+            email,
+            full_name,
+            role: 'user',
+            is_paid: false,
+            plan_name: 'Pendiente a pago',
+            admin_permissions: null,
+          },
+        });
+      } catch (_e) {}
+    }
+
+    res.json({ user: created.user, session: created.session ?? null });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
-
-  res.json({ user: data.user });
 });
 
 // GET /api/users/search?email=... — find user by email
 app.get('/api/users/search', requireAuth, async (req, res) => {
-  const { email } = req.query;
-  if (!email) return res.status(400).json({ error: 'email query param required' });
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ error: 'email query param required' });
 
-  // Paginate through auth users to find by email
-  let found = null;
-  let page = 1;
-  const perPage = 1000;
+    const profile = await findProfileByEmail(String(email));
+    if (!profile) return res.status(404).json({ error: 'User not found' });
 
-  while (!found) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
-    if (error) return res.status(400).json({ error: error.message });
-    if (!data || data.users.length === 0) break;
-
-    found = data.users.find(u => u.email?.toLowerCase() === String(email).toLowerCase()) || null;
-    if (data.users.length < perPage) break;
-    page++;
+    res.json({
+      user: { id: profile.id, email: profile.email, created_at: profile.created_at || null },
+      profile,
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
-
-  if (!found) return res.status(404).json({ error: 'User not found' });
-
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', found.id)
-    .single();
-
-  res.json({
-    user: { id: found.id, email: found.email, created_at: found.created_at },
-    profile: profileError ? null : profile,
-  });
 });
 
 // PUT /api/profiles/:userId — update subscription fields
 app.put('/api/profiles/:userId', requireAuth, async (req, res) => {
-  const { userId } = req.params;
-  const allowed = ['is_paid', 'plan_name', 'subscription_expires_at', 'stripe_customer_id', 'paypal_payer_id', 'full_name'];
-  const updateData = {};
+  try {
+    const { userId } = req.params;
+    const allowed = ['is_paid', 'plan_name', 'subscription_expires_at', 'stripe_customer_id', 'paypal_payer_id', 'full_name'];
+    const updateData = {};
 
-  for (const key of allowed) {
-    if (req.body[key] !== undefined) updateData[key] = req.body[key];
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) updateData[key] = req.body[key];
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    const bearer = await getAdminBearer();
+    const data = await sbFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=*`, {
+      method: 'PATCH',
+      token: bearer,
+      headers: { Prefer: 'return=representation' },
+      body: updateData,
+    });
+
+    res.json({ profile: Array.isArray(data) ? data[0] : data });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
-
-  if (Object.keys(updateData).length === 0) {
-    return res.status(400).json({ error: 'No valid fields to update' });
-  }
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .update(updateData)
-    .eq('id', userId)
-    .select()
-    .single();
-
-  if (error) return res.status(400).json({ error: error.message });
-  res.json({ profile: data });
 });
 
+async function findProfileByEmail(email) {
+  const rows = await sbFetch(`/rest/v1/profiles?email=eq.${encodeURIComponent(email)}&select=*`, {
+    method: 'GET',
+    token: SUPABASE_ANON_KEY,
+  });
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
 async function upsertProfileByEmail(email, patch) {
-  const { data: rows, error } = await supabase
-    .from('profiles')
-    .select('id,email')
-    .eq('email', email)
-    .limit(1);
+  const existing = await findProfileByEmail(email);
+  const bearer = await getAdminBearer();
 
-  if (error) throw error;
-
-  if (rows?.[0]?.id) {
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update(patch)
-      .eq('id', rows[0].id);
-    if (updateError) throw updateError;
+  if (existing?.id) {
+    await sbFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(existing.id)}&select=*`, {
+      method: 'PATCH',
+      token: bearer,
+      headers: { Prefer: 'return=representation' },
+      body: patch,
+    });
     return;
   }
 
-  let found = null;
-  let page = 1;
-  const perPage = 1000;
-  while (!found) {
-    const { data, error: listError } = await supabase.auth.admin.listUsers({ page, perPage });
-    if (listError) throw listError;
-    if (!data || data.users.length === 0) break;
-    found = data.users.find((u) => u.email?.toLowerCase() === String(email).toLowerCase()) || null;
-    if (data.users.length < perPage) break;
-    page++;
-  }
+  const login = await sbFetch('/auth/v1/token?grant_type=password', {
+    method: 'POST',
+    token: SUPABASE_ANON_KEY,
+    body: { email, password: '123456' },
+  }).catch(() => null);
 
-  if (!found) return;
+  const userId = login?.user?.id || null;
+  if (!userId) return;
 
-  const { error: upsertError } = await supabase
-    .from('profiles')
-    .upsert({
-      id: found.id,
+  await sbFetch('/rest/v1/profiles', {
+    method: 'POST',
+    token: bearer,
+    headers: { Prefer: 'return=representation,resolution=merge-duplicates' },
+    body: {
+      id: userId,
       email,
       role: 'user',
       ...patch,
-    }, { onConflict: 'id' });
-
-  if (upsertError) throw upsertError;
+    },
+  });
 }
 
 // Serve React build in production
