@@ -57,6 +57,19 @@ export default function UserSearch() {
 
   return (
     <>
+      {selected && (
+        <>
+          <div className="user-info card">
+            <h2>Usuario seleccionado</h2>
+            <div>
+              <span>ID: <strong>{selected.id}</strong></span>
+              <span>Email: <strong>{selected.email || '—'}</strong></span>
+            </div>
+          </div>
+          <ProfileEditor userId={selected.id} profile={selected} onUpdated={handleProfileUpdated} />
+        </>
+      )}
+
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'end', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 260 }}>
@@ -110,19 +123,6 @@ export default function UserSearch() {
           </table>
         </div>
       </div>
-
-      {selected && (
-        <>
-          <div className="user-info card">
-            <h2>Usuario seleccionado</h2>
-            <div>
-              <span>ID: <strong>{selected.id}</strong></span>
-              <span>Email: <strong>{selected.email || '—'}</strong></span>
-            </div>
-          </div>
-          <ProfileEditor userId={selected.id} profile={selected} onUpdated={handleProfileUpdated} />
-        </>
-      )}
     </>
   );
 }
