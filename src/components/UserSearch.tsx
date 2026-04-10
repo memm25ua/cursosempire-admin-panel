@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import ProfileEditor from './ProfileEditor';
 
@@ -22,11 +22,11 @@ export default function UserSearch() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const load = async () => {
+  const load = async (nextQuery = '') => {
     setLoading(true);
     setError('');
     try {
-      const data = await api.listUsers();
+      const data = await api.listUsers(nextQuery);
       setRows(data.rows || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar usuarios');
@@ -36,18 +36,11 @@ export default function UserSearch() {
   };
 
   useEffect(() => {
-    load();
-  }, []);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((row) =>
-      [row.email, row.full_name, row.plan_name]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(q))
-    );
-  }, [rows, query]);
+    const timer = setTimeout(() => {
+      load(query);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const handleProfileUpdated = (profile: Record<string, unknown>) => {
     const next = profile as Profile;
@@ -83,7 +76,7 @@ export default function UserSearch() {
               style={{ marginBottom: 0 }}
             />
           </div>
-          <button type="button" className="primary" onClick={load} disabled={loading}>
+          <button type="button" className="primary" onClick={() => load(query)} disabled={loading}>
             {loading ? 'Cargando…' : 'Actualizar'}
           </button>
         </div>
@@ -101,7 +94,7 @@ export default function UserSearch() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((row) => (
+              {rows.map((row) => (
                 <tr key={row.id}>
                   <td style={td}>{row.email || '—'}</td>
                   <td style={td}>{row.full_name || '—'}</td>
@@ -114,7 +107,7 @@ export default function UserSearch() {
                   </td>
                 </tr>
               ))}
-              {!loading && filtered.length === 0 && (
+              {!loading && rows.length === 0 && (
                 <tr>
                   <td style={td} colSpan={5}>No hay usuarios que coincidan.</td>
                 </tr>

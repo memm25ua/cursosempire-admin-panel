@@ -182,10 +182,20 @@ app.get('/api/users/search', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/users/list — list users from profiles
-app.get('/api/users/list', requireAuth, async (_req, res) => {
+// GET /api/users/list — list/search users from profiles
+app.get('/api/users/list', requireAuth, async (req, res) => {
   try {
-    const rows = await sbFetch('/rest/v1/profiles?select=id,email,full_name,plan_name,is_paid,subscription_expires_at&order=email.asc&limit=200', {
+    const q = String(req.query.q || '').trim();
+    const limit = q ? 500 : 1000;
+    let url = `/rest/v1/profiles?select=id,email,full_name,plan_name,is_paid,subscription_expires_at&order=email.asc&limit=${limit}`;
+
+    if (q) {
+      const safe = q.replace(/[%*,()]/g, ' ').trim();
+      const term = encodeURIComponent(`*${safe}*`);
+      url += `&or=(email.ilike.${term},full_name.ilike.${term},plan_name.ilike.${term})`;
+    }
+
+    const rows = await sbFetch(url, {
       method: 'GET',
       token: SUPABASE_ANON_KEY,
     });
