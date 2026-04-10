@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 
+const PLAN_OPTIONS = [
+  '',
+  'Cancelado',
+  'Free',
+  'LifeTime',
+  'Lifetime',
+  'PAGO UNICO',
+  'Pago Unico',
+  'Pendiente a pago',
+  'Plan anual',
+];
+
 interface Profile {
   id?: string;
   full_name?: string;
@@ -99,7 +111,13 @@ export default function ProfileEditor({ userId, profile, onUpdated }: Props) {
           </div>
           <div>
             <label>Plan</label>
-            <input type="text" name="plan_name" value={form.plan_name} onChange={handleChange} placeholder="Plan Mensual, Plan Anual..." />
+            <select name="plan_name" value={form.plan_name} onChange={(e) => setForm(prev => ({ ...prev, plan_name: e.target.value }))}>
+              {PLAN_OPTIONS.map((plan) => (
+                <option key={plan || '__empty__'} value={plan}>
+                  {plan || 'Sin plan'}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
