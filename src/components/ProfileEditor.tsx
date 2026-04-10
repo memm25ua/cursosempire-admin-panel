@@ -17,6 +17,7 @@ interface Profile {
   id?: string;
   full_name?: string;
   is_paid?: boolean;
+  is_active?: boolean;
   plan_name?: string;
   subscription_expires_at?: string;
   stripe_customer_id?: string;
@@ -40,6 +41,7 @@ export default function ProfileEditor({ userId, profile, onUpdated }: Props) {
   const [form, setForm] = useState({
     full_name: '',
     is_paid: false,
+    is_active: false,
     plan_name: '',
     subscription_expires_at: '',
     stripe_customer_id: '',
@@ -53,6 +55,7 @@ export default function ProfileEditor({ userId, profile, onUpdated }: Props) {
       setForm({
         full_name: profile.full_name || '',
         is_paid: profile.is_paid || false,
+        is_active: profile.is_active || false,
         plan_name: profile.plan_name || '',
         subscription_expires_at: toDatetimeLocal(profile.subscription_expires_at),
         stripe_customer_id: profile.stripe_customer_id || '',
@@ -74,6 +77,7 @@ export default function ProfileEditor({ userId, profile, onUpdated }: Props) {
       const payload: Record<string, unknown> = {
         full_name: form.full_name || null,
         is_paid: form.is_paid,
+        is_active: form.is_active,
         plan_name: form.plan_name || null,
         stripe_customer_id: form.stripe_customer_id || null,
         paypal_payer_id: form.paypal_payer_id || null,
@@ -150,6 +154,18 @@ export default function ProfileEditor({ userId, profile, onUpdated }: Props) {
             style={{ width: 'auto', marginBottom: 0 }}
           />
           <label htmlFor="is_paid">Pagado</label>
+        </div>
+
+        <div className="toggle-row">
+          <input
+            type="checkbox"
+            id="is_active"
+            name="is_active"
+            checked={form.is_active}
+            onChange={handleChange}
+            style={{ width: 'auto', marginBottom: 0 }}
+          />
+          <label htmlFor="is_active">Activo</label>
         </div>
 
         <button type="submit" className="primary" disabled={loading}>

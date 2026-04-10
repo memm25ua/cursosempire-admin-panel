@@ -8,6 +8,7 @@ interface Profile {
   full_name?: string;
   plan_name?: string;
   is_paid?: boolean;
+  is_active?: boolean;
   subscription_expires_at?: string;
   stripe_customer_id?: string;
   paypal_payer_id?: string;
@@ -90,6 +91,7 @@ export default function UserSearch() {
                 <th style={th}>Nombre</th>
                 <th style={th}>Plan</th>
                 <th style={th}>Pagado</th>
+                <th style={th}>Activo</th>
                 <th style={th}>Acción</th>
               </tr>
             </thead>
@@ -100,6 +102,7 @@ export default function UserSearch() {
                   <td style={td}>{row.full_name || '—'}</td>
                   <td style={td}>{row.plan_name || '—'}</td>
                   <td style={td}>{row.is_paid ? 'Sí' : 'No'}</td>
+                  <td style={td}>{row.is_active ? 'Sí' : 'No'}</td>
                   <td style={td}>
                     <button type="button" className="primary" onClick={() => setSelected(row)}>
                       Editar
@@ -109,7 +112,7 @@ export default function UserSearch() {
               ))}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td style={td} colSpan={5}>No hay usuarios que coincidan.</td>
+                  <td style={td} colSpan={6}>No hay usuarios que coincidan.</td>
                 </tr>
               )}
             </tbody>

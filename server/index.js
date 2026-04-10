@@ -187,7 +187,7 @@ app.get('/api/users/list', requireAuth, async (req, res) => {
   try {
     const q = String(req.query.q || '').trim();
     const limit = q ? 500 : 1000;
-    let url = `/rest/v1/profiles?select=id,email,full_name,plan_name,is_paid,subscription_expires_at&order=email.asc&limit=${limit}`;
+    let url = `/rest/v1/profiles?select=id,email,full_name,plan_name,is_paid,is_active,subscription_expires_at&order=email.asc&limit=${limit}`;
 
     if (q) {
       const safe = q.replace(/[%*,()]/g, ' ').trim();
@@ -209,7 +209,7 @@ app.get('/api/users/list', requireAuth, async (req, res) => {
 app.put('/api/profiles/:userId', requireAuth, async (req, res) => {
   try {
     const { userId } = req.params;
-    const allowed = ['is_paid', 'plan_name', 'subscription_expires_at', 'stripe_customer_id', 'paypal_payer_id', 'full_name'];
+    const allowed = ['is_paid', 'is_active', 'plan_name', 'subscription_expires_at', 'stripe_customer_id', 'paypal_payer_id', 'full_name'];
     const updateData = {};
 
     for (const key of allowed) {
