@@ -83,15 +83,27 @@ async function ensureUserForEmail(email, metadata = {}) {
   const authUser = await findAuthUserByEmail(email);
   if (authUser?.id) return authUser.id;
 
-  if (!supabaseAdmin) return null;
+  if (supabaseAdmin) {
+    const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      data: metadata,
+      redirectTo: `${SITE_URL.replace(/\/$/, '')}/login`,
+    });
+    if (error) throw error;
+    return data?.user?.id || null;
+  }
 
-  const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    data: metadata,
-    redirectTo: `${SITE_URL.replace(/\/$/, '')}/login`,
+  const randomPassword = `Tmp!${Math.random().toString(36).slice(2)}${Date.now()}`;
+  const created = await sbFetch('/auth/v1/signup', {
+    method: 'POST',
+    token: SUPABASE_ANON_KEY,
+    body: {
+      email,
+      password: randomPassword,
+      data: metadata,
+    },
   });
 
-  if (error) throw error;
-  return data?.user?.id || null;
+  return created?.user?.id || null;
 }
 
 async function upsertProfileByEmail(email, patch, metadata = {}) {
