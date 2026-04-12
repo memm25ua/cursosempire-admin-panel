@@ -1,76 +1,110 @@
 # cursosempire-admin-panel
 
-Mini admin panel for managing Supabase users and profiles.
+Panel mínimo para gestionar usuarios y suscripciones de Cursosempire.
 
-## Stack
+## Qué hace ahora
 
-- Frontend: Vite + React (TypeScript)
-- Backend: Express.js (serves API + static build)
-- Auth: Session-based with `ADMIN_PASSWORD`
+- crear usuarios manualmente
+- editar `profiles`
+- listar/buscar usuarios
+- recibir webhooks de Stripe
+- **crear/invitar automáticamente al usuario cuando paga**
+- **activar `is_paid` e `is_active` automáticamente**
+- **enviar email de acceso automáticamente vía Supabase Auth** si configuras `SUPABASE_SERVICE_ROLE_KEY`
 
-## Environment Variables
+## Variables importantes en Coolify
 
-Copy `.env.example` to `.env` and fill in values:
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` ← necesaria para crear/invitar usuarios por email automáticamente
+- `SITE_URL=https://cursosempire.pro`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
 
-| Variable | Required | Description |
-|---|---|---|
-| `SUPABASE_URL` | Yes | Your Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Service role key (admin — keep secret) |
-| `ADMIN_PASSWORD` | Yes | Password to access the panel |
-| `SESSION_SECRET` | Yes | Random string for session signing |
-| `STRIPE_SECRET_KEY` | No | Stripe secret key for webhook processing |
-| `STRIPE_WEBHOOK_SECRET` | No | Signing secret from Stripe webhook |
-| `PORT` | No | Server port (default: 3000 in prod) |
+## Qué hace el webhook
 
-## Local Development
+### `checkout.session.completed`
+- coge el email del pago
+- intenta localizar el usuario
+- si no existe y hay `SUPABASE_SERVICE_ROLE_KEY`, lo **invita/crea** en Supabase Auth
+- crea/actualiza `profiles`
+- pone:
+  - `is_paid = true`
+  - `is_active = true`
+  - `plan_name`
+  - `stripe_customer_id`
+  - `subscription_expires_at` si Stripe ya la devuelve
 
-```bash
-npm install
-cp .env.example .env   # fill in values
-npm run dev            # starts Express (3001) + Vite (5173)
-```
+### `customer.subscription.created|updated|deleted`
+- sincroniza:
+  - `is_paid`
+  - `is_active`
+  - `plan_name`
+  - `subscription_expires_at`
+  - `stripe_customer_id`
 
-Open http://localhost:5173
+## Qué tienes que hacer en Stripe
 
-## Deploy on Coolify
-
-1. In Coolify, create a new **Docker** service pointing to this repo.
-2. Select **Dockerfile** as build method.
-3. Set environment variables from the table above.
-4. Expose port **3000**.
-5. Deploy.
-
-The container builds the React app and serves everything from the Express server on port 3000.
-
-## API Routes
-
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/login` | Authenticate with ADMIN_PASSWORD |
-| POST | `/api/logout` | End session |
-| GET | `/api/me` | Check auth status |
-| POST | `/api/users` | Create Supabase auth user and upsert profile |
-| GET | `/api/users/search?email=` | Find user + profile by email |
-| PUT | `/api/profiles/:userId` | Update profile subscription fields |
-| POST | `/api/stripe/webhook` | Sync Stripe checkout/subscription events |
-
-## Profile Fields Managed
-
-`full_name`, `is_paid`, `plan_name`, `subscription_expires_at`, `stripe_customer_id`, `paypal_payer_id`
-
-## Stripe webhook
-
+### 1. Crear webhook
 En Stripe:
+- Developers → Webhooks → Add endpoint
+- URL:
+  - `https://cursosempire-admin.aistack.es/api/stripe/webhook`
 
-1. Developers → Webhooks → Add endpoint
-2. URL: `https://TU-DOMINIO/api/stripe/webhook`
-3. Eventos:
-   - `checkout.session.completed`
-   - `customer.subscription.created`
-   - `customer.subscription.updated`
-   - `customer.subscription.deleted`
-4. Copia el `whsec_...` y ponlo en `STRIPE_WEBHOOK_SECRET`
+### 2. Eventos a escuchar
+Marca estos:
+- `checkout.session.completed`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
 
-Qué hace:
-- en `checkout.session.completed` intenta guardar `stripe_customer_id` y marcar pago
-- en `customer.subscription.*` actualiza `is_paid`, `plan_name` y `subscription_expires_at`
+### 3. Copiar el signing secret
+Te dará un valor tipo:
+- `whsec_...`
+
+Ponlo en Coolify como:
+- `STRIPE_WEBHOOK_SECRET`
+
+### 4. Asegúrate de cobrar con email
+En tu Checkout de Stripe debe ir email real del cliente.
+Idealmente:
+- `customer_email`
+- o que Checkout recoja el email del comprador
+
+### 5. Opcional pero recomendable
+En el Checkout Session manda también:
+- `metadata.plan_name`
+
+Ejemplo:
+- `Plan mensual`
+- `Plan Anual`
+- `Lifetime`
+
+Así el panel guarda el plan correcto.
+
+## Emails
+
+### Email de Stripe
+Stripe puede mandar:
+- recibos
+- confirmaciones de pago
+- facturas
+
+Eso se configura en Stripe Dashboard → Customer emails.
+
+### Email de acceso
+Ese **no** lo manda Stripe.
+Lo manda **Supabase Auth** cuando el webhook invita/crea al usuario.
+
+Por eso necesitas en Coolify:
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Y en Supabase debes tener bien configurado:
+- SMTP / emails de Auth
+- URL de redirección correcta (`SITE_URL`)
+
+## Después de poner las envs
+Solo redeploy en Coolify.
+
+Webhook final:
+- `https://cursosempire-admin.aistack.es/api/stripe/webhook`
