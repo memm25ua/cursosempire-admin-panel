@@ -92,13 +92,12 @@ async function ensureUserForEmail(email, metadata = {}) {
     return data?.user?.id || null;
   }
 
-  const randomPassword = `Tmp!${Math.random().toString(36).slice(2)}${Date.now()}`;
   const created = await sbFetch('/auth/v1/signup', {
     method: 'POST',
     token: SUPABASE_ANON_KEY,
     body: {
       email,
-      password: randomPassword,
+      password: 'rhcursos123',
       data: metadata,
     },
   });
